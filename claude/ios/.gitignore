@@ -1,0 +1,25 @@
+# Xcode
+build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+xcuserdata/
+
+# OS
+.DS_Store
+
+# CocoaPods
+Pods/
+
+# SPM
+.build/
+Package.resolved
+
+# Misc
+*.ipa
+*.dSYM.zip
+*.dSYM
+*.hmap
+*.xccheckout
+*.moved-aside
+*.xcscmblueprint
