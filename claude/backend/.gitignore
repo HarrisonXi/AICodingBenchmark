@@ -1,4 +1,5 @@
-backend/bookkeeping.db
-backend/bookkeeping.db-wal
-backend/bookkeeping.db-shm
-backend/node_modules
+node_modules/
+bookkeeping.db
+bookkeeping.db-wal
+bookkeeping.db-shm
+.env
