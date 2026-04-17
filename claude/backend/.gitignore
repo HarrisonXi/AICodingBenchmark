@@ -1,0 +1,4 @@
+backend/bookkeeping.db
+backend/bookkeeping.db-wal
+backend/bookkeeping.db-shm
+backend/node_modules
