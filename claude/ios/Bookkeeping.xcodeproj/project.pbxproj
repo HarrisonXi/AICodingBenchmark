@@ -24,6 +24,7 @@
 		AA000030 /* AmountFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100030; };
 		AA000031 /* DateHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100031; };
 		AA000032 /* UIHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100032; };
+		AA000033 /* KeyboardHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100033; };
 		AA000040 /* LoginViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100040; };
 		AA000041 /* RegisterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100041; };
 		AA000042 /* RecordListViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100042; };
@@ -49,6 +50,7 @@
 		AA100030 /* AmountFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountFormatter.swift; sourceTree = "<group>"; };
 		AA100031 /* DateHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateHelper.swift; sourceTree = "<group>"; };
 		AA100032 /* UIHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIHelpers.swift; sourceTree = "<group>"; };
+		AA100033 /* KeyboardHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardHelper.swift; sourceTree = "<group>"; };
 		AA100040 /* LoginViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewController.swift; sourceTree = "<group>"; };
 		AA100041 /* RegisterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisterViewController.swift; sourceTree = "<group>"; };
 		AA100042 /* RecordListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordListViewController.swift; sourceTree = "<group>"; };
@@ -129,6 +131,7 @@
 				AA100030 /* AmountFormatter.swift */,
 				AA100031 /* DateHelper.swift */,
 				AA100032 /* UIHelpers.swift */,
+				AA100033 /* KeyboardHelper.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -230,6 +233,7 @@
 				AA000030 /* AmountFormatter.swift in Sources */,
 				AA000031 /* DateHelper.swift in Sources */,
 				AA000032 /* UIHelpers.swift in Sources */,
+				AA000033 /* KeyboardHelper.swift in Sources */,
 				AA000040 /* LoginViewController.swift in Sources */,
 				AA000041 /* RegisterViewController.swift in Sources */,
 				AA000042 /* RecordListViewController.swift in Sources */,

@@ -55,6 +55,9 @@ enum UIFactory {
         let tf = UITextField()
         tf.placeholder = placeholder
         tf.isSecureTextEntry = isSecure
+        if isSecure {
+            tf.textContentType = .oneTimeCode
+        }
         tf.borderStyle = .none
         tf.font = .systemFont(ofSize: 16)
         tf.autocapitalizationType = .none

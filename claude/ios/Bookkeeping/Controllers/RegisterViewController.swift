@@ -6,6 +6,7 @@ class RegisterViewController: UIViewController {
 
     private let scrollView = UIScrollView()
     private let contentView = UIView()
+    private var keyboardObservers: [NSObjectProtocol] = []
 
     private let titleLabel = UIFactory.label(
         text: "注册",
@@ -46,6 +47,11 @@ class RegisterViewController: UIViewController {
         setupUI()
         setupActions()
         setupKeyboardDismiss()
+        keyboardObservers = KeyboardHelper.register(scrollView: scrollView, in: self)
+    }
+
+    deinit {
+        KeyboardHelper.unregister(keyboardObservers)
     }
 
     // MARK: - UI 布局

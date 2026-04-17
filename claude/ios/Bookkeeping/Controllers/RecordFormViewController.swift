@@ -27,6 +27,7 @@ class RecordFormViewController: UIViewController {
 
     private let scrollView = UIScrollView()
     private let contentView = UIView()
+    private var keyboardObservers: [NSObjectProtocol] = []
 
     private let typeSegment: UISegmentedControl = {
         let sc = UISegmentedControl(items: ["支出", "收入"])
@@ -110,6 +111,11 @@ class RecordFormViewController: UIViewController {
         setupKeyboardDismiss()
         loadCategories()
         populateForEdit()
+        keyboardObservers = KeyboardHelper.register(scrollView: scrollView, in: self)
+    }
+
+    deinit {
+        KeyboardHelper.unregister(keyboardObservers)
     }
 
     // MARK: - UI 布局
