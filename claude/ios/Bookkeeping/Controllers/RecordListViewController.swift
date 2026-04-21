@@ -5,37 +5,39 @@ class RecordListViewController: UIViewController {
     // MARK: - 数据
 
     private var records: [BookRecord] = []
+    private var currentPage = 1
+    private var totalPages = 1
+    private var isLoadingMore = false
+    private var filters = RecordFilters()
 
     // MARK: - UI 元素
 
     private let tableView = UITableView(frame: .zero, style: .plain)
     private let loadingIndicator = UIActivityIndicatorView(style: .large)
     private let emptyLabel = UIFactory.label(
-        text: "暂无记录\n点击右下角按钮开始记账",
+        text: "暂无记录",
         font: .systemFont(ofSize: 16),
         color: .secondaryLabel
     )
 
-    // 汇总卡片
-    private let summaryView = UIView()
-    private let incomeValueLabel = UIFactory.label(font: .systemFont(ofSize: 20, weight: .semibold), color: .systemGreen)
-    private let expenseValueLabel = UIFactory.label(font: .systemFont(ofSize: 20, weight: .semibold), color: .systemRed)
-    private let balanceValueLabel = UIFactory.label(font: .systemFont(ofSize: 20, weight: .semibold))
+    // 筛选栏
+    private let typeButton = UIButton(type: .system)
+    private let categoryButton = UIButton(type: .system)
+    private let startDatePicker = UIDatePicker()
+    private let endDatePicker = UIDatePicker()
+    private let startDateLabel = UIFactory.label(text: "开始", font: .systemFont(ofSize: 13), color: .secondaryLabel)
+    private let endDateLabel = UIFactory.label(text: "结束", font: .systemFont(ofSize: 13), color: .secondaryLabel)
+    private let clearStartButton = UIButton(type: .system)
+    private let clearEndButton = UIButton(type: .system)
+    private var startDateSet = false
+    private var endDateSet = false
 
-    // 浮动添加按钮
-    private let fabButton: UIButton = {
-        let btn = UIButton(type: .system)
-        btn.setTitle("+", for: .normal)
-        btn.setTitleColor(.white, for: .normal)
-        btn.titleLabel?.font = .systemFont(ofSize: 28, weight: .medium)
-        btn.backgroundColor = .systemBlue
-        btn.layer.cornerRadius = 28
-        btn.layer.shadowColor = UIColor.black.cgColor
-        btn.layer.shadowOffset = CGSize(width: 0, height: 2)
-        btn.layer.shadowOpacity = 0.3
-        btn.layer.shadowRadius = 4
-        btn.translatesAutoresizingMaskIntoConstraints = false
-        return btn
+    // 分页加载指示器
+    private let footerSpinner: UIActivityIndicatorView = {
+        let spinner = UIActivityIndicatorView(style: .medium)
+        spinner.frame = CGRect(x: 0, y: 0, width: 0, height: 44)
+        spinner.hidesWhenStopped = true
+        return spinner
     }()
 
     // MARK: - 生命周期
@@ -45,16 +47,20 @@ class RecordListViewController: UIViewController {
         view.backgroundColor = .systemBackground
         title = "记账本"
         setupNavBar()
-        setupSummaryView()
+        setupFilterBar()
         setupTableView()
-        setupFAB()
         setupEmptyState()
         setupLoading()
+
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleRecordChanged),
+            name: Notification.Name("RecordDidChange"), object: nil
+        )
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        fetchRecords()
+        resetAndFetch()
     }
 
     // MARK: - 导航栏
@@ -80,59 +86,191 @@ class RecordListViewController: UIViewController {
         }
     }
 
-    // MARK: - 汇总卡片
+    // MARK: - 筛选栏
 
-    private func setupSummaryView() {
-        summaryView.backgroundColor = .secondarySystemBackground
-        summaryView.layer.cornerRadius = 12
+    private func setupFilterBar() {
+        // 类型按钮
+        configureMenuButton(typeButton, title: "全部")
+        updateTypeMenu()
 
-        let incomeTitleLabel = UIFactory.label(text: "收入", font: .systemFont(ofSize: 13), color: .secondaryLabel)
-        let expenseTitleLabel = UIFactory.label(text: "支出", font: .systemFont(ofSize: 13), color: .secondaryLabel)
-        let balanceTitleLabel = UIFactory.label(text: "结余", font: .systemFont(ofSize: 13), color: .secondaryLabel)
+        // 分类按钮
+        configureMenuButton(categoryButton, title: "全部")
+        updateCategoryMenu()
 
-        // 收入列
-        let incomeStack = UIStackView(arrangedSubviews: [incomeTitleLabel, incomeValueLabel])
-        incomeStack.axis = .vertical
-        incomeStack.alignment = .center
-        incomeStack.spacing = 4
+        // 日期选择器
+        for dp in [startDatePicker, endDatePicker] {
+            dp.datePickerMode = .date
+            if #available(iOS 13.4, *) {
+                dp.preferredDatePickerStyle = .compact
+            }
+            dp.translatesAutoresizingMaskIntoConstraints = false
+            dp.addTarget(self, action: #selector(dateChanged), for: .valueChanged)
+            // 初始隐藏选中状态
+            dp.alpha = 0.3
+        }
 
-        // 支出列
-        let expenseStack = UIStackView(arrangedSubviews: [expenseTitleLabel, expenseValueLabel])
-        expenseStack.axis = .vertical
-        expenseStack.alignment = .center
-        expenseStack.spacing = 4
+        // 清除日期按钮
+        for btn in [clearStartButton, clearEndButton] {
+            btn.setTitle("✕", for: .normal)
+            btn.setTitleColor(.secondaryLabel, for: .normal)
+            btn.titleLabel?.font = .systemFont(ofSize: 12)
+            btn.translatesAutoresizingMaskIntoConstraints = false
+            btn.setSize(width: 20, height: 20)
+            btn.isHidden = true
+        }
+        clearStartButton.addTarget(self, action: #selector(clearStartDate), for: .touchUpInside)
+        clearEndButton.addTarget(self, action: #selector(clearEndDate), for: .touchUpInside)
 
-        // 结余列
-        let balanceStack = UIStackView(arrangedSubviews: [balanceTitleLabel, balanceValueLabel])
-        balanceStack.axis = .vertical
-        balanceStack.alignment = .center
-        balanceStack.spacing = 4
+        // 第一行：类型 + 分类
+        let row1 = UIStackView(arrangedSubviews: [typeButton, categoryButton])
+        row1.axis = .horizontal
+        row1.distribution = .fillEqually
+        row1.spacing = 8
 
-        let hStack = UIStackView(arrangedSubviews: [incomeStack, expenseStack, balanceStack])
-        hStack.axis = .horizontal
-        hStack.distribution = .fillEqually
-        hStack.translatesAutoresizingMaskIntoConstraints = false
+        // 第二行：开始日期 + 结束日期
+        let startStack = UIStackView(arrangedSubviews: [startDateLabel, startDatePicker, clearStartButton])
+        startStack.axis = .horizontal
+        startStack.alignment = .center
+        startStack.spacing = 4
 
-        summaryView.addSubview(hStack)
-        hStack.pinToEdges(of: summaryView, insets: UIEdgeInsets(top: 16, left: 8, bottom: 16, right: 8))
+        let endStack = UIStackView(arrangedSubviews: [endDateLabel, endDatePicker, clearEndButton])
+        endStack.axis = .horizontal
+        endStack.alignment = .center
+        endStack.spacing = 4
 
-        summaryView.frame = CGRect(x: 16, y: 0, width: view.bounds.width - 32, height: 80)
+        let row2 = UIStackView(arrangedSubviews: [startStack, endStack])
+        row2.axis = .horizontal
+        row2.distribution = .fillEqually
+        row2.spacing = 8
 
-        // 包装成 tableHeaderView
-        let headerContainer = UIView(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 96))
-        summaryView.translatesAutoresizingMaskIntoConstraints = false
-        headerContainer.addSubview(summaryView)
+        let filterStack = UIStackView(arrangedSubviews: [row1, row2])
+        filterStack.axis = .vertical
+        filterStack.spacing = 8
+        filterStack.translatesAutoresizingMaskIntoConstraints = false
+
+        let headerContainer = UIView()
+        headerContainer.addSubview(filterStack)
 
         NSLayoutConstraint.activate([
-            summaryView.topAnchor.constraint(equalTo: headerContainer.topAnchor, constant: 8),
-            summaryView.leadingAnchor.constraint(equalTo: headerContainer.leadingAnchor, constant: 16),
-            summaryView.trailingAnchor.constraint(equalTo: headerContainer.trailingAnchor, constant: -16),
-            summaryView.bottomAnchor.constraint(equalTo: headerContainer.bottomAnchor, constant: -8),
+            filterStack.topAnchor.constraint(equalTo: headerContainer.topAnchor, constant: 8),
+            filterStack.leadingAnchor.constraint(equalTo: headerContainer.leadingAnchor, constant: 16),
+            filterStack.trailingAnchor.constraint(equalTo: headerContainer.trailingAnchor, constant: -16),
+            filterStack.bottomAnchor.constraint(equalTo: headerContainer.bottomAnchor, constant: -8),
         ])
 
+        // 计算 header 高度
+        headerContainer.frame = CGRect(x: 0, y: 0, width: view.bounds.width, height: 100)
+        headerContainer.layoutIfNeeded()
+        let targetSize = CGSize(width: view.bounds.width, height: UIView.layoutFittingCompressedSize.height)
+        let fittingSize = headerContainer.systemLayoutSizeFitting(
+            targetSize,
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        )
+        headerContainer.frame.size.height = fittingSize.height
         tableView.tableHeaderView = headerContainer
+    }
 
-        updateSummary()
+    private func configureMenuButton(_ button: UIButton, title: String) {
+        button.setTitle(title, for: .normal)
+        button.titleLabel?.font = .systemFont(ofSize: 14)
+        button.backgroundColor = .secondarySystemBackground
+        button.layer.cornerRadius = 6
+        button.contentHorizontalAlignment = .center
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.heightAnchor.constraint(equalToConstant: 34).isActive = true
+        button.showsMenuAsPrimaryAction = true
+    }
+
+    private func updateTypeMenu() {
+        let allAction = UIAction(title: "全部", state: filters.isIncome == nil ? .on : .off) { [weak self] _ in
+            self?.filters.isIncome = nil
+            self?.typeButton.setTitle("全部", for: .normal)
+            self?.filters.categoryId = nil
+            self?.categoryButton.setTitle("全部", for: .normal)
+            self?.updateCategoryMenu()
+            self?.resetAndFetch()
+        }
+        let expenseAction = UIAction(title: "支出", state: filters.isIncome == 0 ? .on : .off) { [weak self] _ in
+            self?.filters.isIncome = 0
+            self?.typeButton.setTitle("支出", for: .normal)
+            self?.filters.categoryId = nil
+            self?.categoryButton.setTitle("全部", for: .normal)
+            self?.updateCategoryMenu()
+            self?.resetAndFetch()
+        }
+        let incomeAction = UIAction(title: "收入", state: filters.isIncome == 1 ? .on : .off) { [weak self] _ in
+            self?.filters.isIncome = 1
+            self?.typeButton.setTitle("收入", for: .normal)
+            self?.filters.categoryId = nil
+            self?.categoryButton.setTitle("全部", for: .normal)
+            self?.updateCategoryMenu()
+            self?.resetAndFetch()
+        }
+        typeButton.menu = UIMenu(children: [allAction, expenseAction, incomeAction])
+    }
+
+    private func updateCategoryMenu() {
+        var categories: [Category]
+        switch filters.isIncome {
+        case 0:
+            categories = CategoryService.expenseCategories()
+        case 1:
+            categories = CategoryService.incomeCategories()
+        default:
+            categories = CategoryService.expenseCategories() + CategoryService.incomeCategories()
+        }
+
+        var actions: [UIAction] = []
+        actions.append(UIAction(title: "全部", state: filters.categoryId == nil ? .on : .off) { [weak self] _ in
+            self?.filters.categoryId = nil
+            self?.categoryButton.setTitle("全部", for: .normal)
+            self?.resetAndFetch()
+        })
+
+        for cat in categories {
+            let state: UIMenuElement.State = filters.categoryId == cat.id ? .on : .off
+            actions.append(UIAction(title: cat.name, state: state) { [weak self] _ in
+                self?.filters.categoryId = cat.id
+                self?.categoryButton.setTitle(cat.name, for: .normal)
+                self?.resetAndFetch()
+            })
+        }
+
+        categoryButton.menu = UIMenu(children: actions)
+    }
+
+    @objc private func dateChanged(_ sender: UIDatePicker) {
+        let dateStr = DateHelper.formatDate(sender.date)
+
+        if sender == startDatePicker {
+            filters.startDate = dateStr
+            startDateSet = true
+            startDatePicker.alpha = 1.0
+            clearStartButton.isHidden = false
+        } else {
+            filters.endDate = dateStr
+            endDateSet = true
+            endDatePicker.alpha = 1.0
+            clearEndButton.isHidden = false
+        }
+        resetAndFetch()
+    }
+
+    @objc private func clearStartDate() {
+        filters.startDate = nil
+        startDateSet = false
+        startDatePicker.alpha = 0.3
+        clearStartButton.isHidden = true
+        resetAndFetch()
+    }
+
+    @objc private func clearEndDate() {
+        filters.endDate = nil
+        endDateSet = false
+        endDatePicker.alpha = 0.3
+        clearEndButton.isHidden = true
+        resetAndFetch()
     }
 
     // MARK: - 表格
@@ -143,22 +281,10 @@ class RecordListViewController: UIViewController {
         tableView.register(RecordCell.self, forCellReuseIdentifier: RecordCell.reuseID)
         tableView.separatorInset = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
         tableView.translatesAutoresizingMaskIntoConstraints = false
+        tableView.tableFooterView = footerSpinner
 
         view.addSubview(tableView)
         tableView.pinToSafeArea(of: view)
-    }
-
-    // MARK: - 浮动按钮
-
-    private func setupFAB() {
-        view.addSubview(fabButton)
-        NSLayoutConstraint.activate([
-            fabButton.widthAnchor.constraint(equalToConstant: 56),
-            fabButton.heightAnchor.constraint(equalToConstant: 56),
-            fabButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -20),
-            fabButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
-        ])
-        fabButton.addTarget(self, action: #selector(addTapped), for: .touchUpInside)
     }
 
     // MARK: - 空状态
@@ -181,18 +307,44 @@ class RecordListViewController: UIViewController {
 
     // MARK: - 数据获取
 
-    private func fetchRecords() {
-        loadingIndicator.startAnimating()
+    private func resetAndFetch() {
+        currentPage = 1
+        totalPages = 1
+        records = []
+        tableView.reloadData()
+        fetchPage(page: 1)
+    }
+
+    private func fetchPage(page: Int) {
+        if page == 1 {
+            loadingIndicator.startAnimating()
+        } else {
+            footerSpinner.startAnimating()
+        }
+        isLoadingMore = true
 
         Task {
             do {
-                records = try await RecordService.getRecords()
+                let response = try await RecordService.getRecords(
+                    page: page, pageSize: 20, filters: filters
+                )
+                if page == 1 {
+                    self.records = response.items
+                } else {
+                    self.records.append(contentsOf: response.items)
+                }
+                self.currentPage = response.pagination.page
+                self.totalPages = response.pagination.totalPages
             } catch is APIClient.APIError {
-                // 401 已由 APIClient 处理，其他错误忽略并保持当前列表
+                // 401 已由 APIClient 处理
             } catch {
-                showAlert(message: "网络错误，请稍后重试")
+                if page == 1 {
+                    showAlert(message: "网络错误，请稍后重试")
+                }
             }
+            isLoadingMore = false
             loadingIndicator.stopAnimating()
+            footerSpinner.stopAnimating()
             updateUI()
         }
     }
@@ -200,26 +352,9 @@ class RecordListViewController: UIViewController {
     private func updateUI() {
         tableView.reloadData()
         emptyLabel.isHidden = !records.isEmpty
-        updateSummary()
-    }
-
-    private func updateSummary() {
-        let income = records.filter { $0.isIncome == 1 }.reduce(0) { $0 + $1.amount }
-        let expense = records.filter { $0.isIncome == 0 }.reduce(0) { $0 + $1.amount }
-        let balance = income - expense
-
-        incomeValueLabel.text = "+\(AmountFormatter.centsToYuan(income))"
-        expenseValueLabel.text = "-\(AmountFormatter.centsToYuan(expense))"
-        balanceValueLabel.text = (balance >= 0 ? "+" : "") + AmountFormatter.centsToYuan(balance)
-        balanceValueLabel.textColor = balance >= 0 ? .systemGreen : .systemRed
     }
 
     // MARK: - 操作
-
-    @objc private func addTapped() {
-        let vc = RecordFormViewController(mode: .create)
-        navigationController?.pushViewController(vc, animated: true)
-    }
 
     @objc private func logoutTapped() {
         let alert = UIAlertController(title: "确认退出", message: "确定要退出登录吗？", preferredStyle: .alert)
@@ -240,7 +375,7 @@ class RecordListViewController: UIViewController {
             Task {
                 do {
                     try await RecordService.deleteRecord(id: record.id)
-                    self?.fetchRecords()
+                    NotificationCenter.default.post(name: Notification.Name("RecordDidChange"), object: nil)
                 } catch let error as APIClient.APIError {
                     self?.showAlert(message: error.message)
                 } catch {
@@ -249,6 +384,10 @@ class RecordListViewController: UIViewController {
             }
         })
         present(alert, animated: true)
+    }
+
+    @objc private func handleRecordChanged() {
+        resetAndFetch()
     }
 
     private func showAlert(message: String) {
@@ -275,6 +414,9 @@ extension RecordListViewController: UITableViewDataSource, UITableViewDelegate {
         tableView.deselectRow(at: indexPath, animated: true)
         let record = records[indexPath.row]
         let vc = RecordFormViewController(mode: .edit(record))
+        vc.onRecordSaved = { [weak self] in
+            NotificationCenter.default.post(name: Notification.Name("RecordDidChange"), object: nil)
+        }
         navigationController?.pushViewController(vc, animated: true)
     }
 
@@ -288,6 +430,15 @@ extension RecordListViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return 72
+    }
+
+    // 无限滚动：接近底部时加载下一页
+    func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+        if indexPath.row >= records.count - 3,
+           !isLoadingMore,
+           currentPage < totalPages {
+            fetchPage(page: currentPage + 1)
+        }
     }
 }
 

@@ -29,6 +29,11 @@
 		AA000041 /* RegisterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100041; };
 		AA000042 /* RecordListViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100042; };
 		AA000043 /* RecordFormViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100043; };
+		AA000050 /* StatisticsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100050; };
+		AA000051 /* StatisticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100051; };
+		AA000052 /* DonutChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100052; };
+		AA000053 /* StatisticsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100053; };
+		AA000054 /* MainTabBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100054; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -55,6 +60,11 @@
 		AA100041 /* RegisterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisterViewController.swift; sourceTree = "<group>"; };
 		AA100042 /* RecordListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordListViewController.swift; sourceTree = "<group>"; };
 		AA100043 /* RecordFormViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordFormViewController.swift; sourceTree = "<group>"; };
+		AA100050 /* StatisticsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsModels.swift; sourceTree = "<group>"; };
+		AA100051 /* StatisticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsService.swift; sourceTree = "<group>"; };
+		AA100052 /* DonutChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DonutChartView.swift; sourceTree = "<group>"; };
+		AA100053 /* StatisticsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsViewController.swift; sourceTree = "<group>"; };
+		AA100054 /* MainTabBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabBarController.swift; sourceTree = "<group>"; };
 		AA200001 /* Bookkeeping.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Bookkeeping.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -86,6 +96,7 @@
 				AA400020 /* Services */,
 				AA400030 /* Utils */,
 				AA400040 /* Controllers */,
+				AA400050 /* Views */,
 				AA100003 /* Assets.xcassets */,
 				AA100004 /* Info.plist */,
 			);
@@ -108,6 +119,7 @@
 				AA100012 /* BookRecord.swift */,
 				AA100013 /* CreateRecordPayload.swift */,
 				AA100014 /* APIErrorBody.swift */,
+				AA100050 /* StatisticsModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -121,6 +133,7 @@
 				AA100023 /* CategoryService.swift */,
 				AA100024 /* KeychainHelper.swift */,
 				AA100025 /* AuthManager.swift */,
+				AA100051 /* StatisticsService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -143,8 +156,18 @@
 				AA100041 /* RegisterViewController.swift */,
 				AA100042 /* RecordListViewController.swift */,
 				AA100043 /* RecordFormViewController.swift */,
+				AA100053 /* StatisticsViewController.swift */,
+				AA100054 /* MainTabBarController.swift */,
 			);
 			path = Controllers;
+			sourceTree = "<group>";
+		};
+		AA400050 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				AA100052 /* DonutChartView.swift */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -238,6 +261,11 @@
 				AA000041 /* RegisterViewController.swift in Sources */,
 				AA000042 /* RecordListViewController.swift in Sources */,
 				AA000043 /* RecordFormViewController.swift in Sources */,
+				AA000050 /* StatisticsModels.swift in Sources */,
+				AA000051 /* StatisticsService.swift in Sources */,
+				AA000052 /* DonutChartView.swift in Sources */,
+				AA000053 /* StatisticsViewController.swift in Sources */,
+				AA000054 /* MainTabBarController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

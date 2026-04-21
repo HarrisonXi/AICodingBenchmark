@@ -11,6 +11,9 @@ class RecordFormViewController: UIViewController {
 
     private let mode: RecordFormMode
 
+    /// 保存成功后的回调
+    var onRecordSaved: (() -> Void)?
+
     init(mode: RecordFormMode) {
         self.mode = mode
         super.init(nibName: nil, bundle: nil)
@@ -302,7 +305,13 @@ class RecordFormViewController: UIViewController {
                 case .edit(let record):
                     _ = try await RecordService.updateRecord(id: record.id, payload)
                 }
-                navigationController?.popViewController(animated: true)
+                onRecordSaved?()
+                // modal 由回调方负责 dismiss；push 场景直接 pop
+                if navigationController?.presentingViewController != nil && onRecordSaved != nil {
+                    // modal 模式：回调中处理 dismiss
+                } else {
+                    navigationController?.popViewController(animated: true)
+                }
             } catch let error as APIClient.APIError {
                 apiErrorLabel.text = "  \(error.message)  "
                 apiErrorLabel.isHidden = false

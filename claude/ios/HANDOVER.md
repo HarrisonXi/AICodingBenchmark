@@ -19,10 +19,11 @@ open Bookkeeping.xcodeproj
 |------|------|------|
 | 语言 | Swift 5 | iOS 原生开发标准语言 |
 | UI 框架 | UIKit | 需求指定，成熟稳定 |
-| 架构 | MVC | 4 个页面，UIKit 原生模式足够 |
+| 架构 | MVC | UIKit 原生模式，适合当前规模 |
 | 布局 | 纯代码 Auto Layout | 无 Storyboard/XIB，代码可审查 |
 | 网络 | URLSession 封装 | ~80 行，对标前端 http.ts，无第三方依赖 |
 | Token 存储 | Keychain | 安全存储 JWT，不用 UserDefaults |
+| 图表 | CoreGraphics (UIBezierPath) | 零依赖自绘环形图，~150 行 |
 | 依赖管理 | 无 | 零第三方依赖，全部使用 Apple 原生框架 |
 | 最低版本 | iOS 15 | 使用 async/await |
 
@@ -39,12 +40,14 @@ Bookkeeping/
     BookRecord.swift             — 记账记录模型
     CreateRecordPayload.swift    — 创建/更新请求体
     APIErrorBody.swift           — API 错误响应信封
+    StatisticsModels.swift       — 统计模型（月度汇总、分类明细、分页响应、筛选参数）
 
   Services/
     APIClient.swift              — HTTP 客户端核心（自动注入 token、401 拦截）
     AuthService.swift            — 登录/注册 API 调用
-    RecordService.swift          — 记录 CRUD API 调用
+    RecordService.swift          — 记录 CRUD API 调用（支持分页+筛选）
     CategoryService.swift        — 分类 API 调用 + 内存缓存
+    StatisticsService.swift      — 统计 API 调用（月度汇总、分类明细）
     KeychainHelper.swift         — Keychain 安全存储封装
     AuthManager.swift            — 认证状态管理单例
 
@@ -52,12 +55,18 @@ Bookkeeping/
     AmountFormatter.swift        — 金额单位转换（分 ↔ 元）
     DateHelper.swift             — 日期格式化（YYYY-MM-DD）
     UIHelpers.swift              — Auto Layout 扩展 + UI 工厂方法
+    KeyboardHelper.swift         — 键盘处理辅助
+
+  Views/
+    DonutChartView.swift         — CoreGraphics 自绘环形图组件
 
   Controllers/
     LoginViewController.swift    — 登录页
     RegisterViewController.swift — 注册页
-    RecordListViewController.swift — 记录列表主页（含 RecordCell）
-    RecordFormViewController.swift — 新增/编辑记录表单页（含 CategoryCell）
+    MainTabBarController.swift   — 底部导航（明细+统计+中央"+"按钮）
+    RecordListViewController.swift — 记录列表（筛选+分页+无限滚动）
+    RecordFormViewController.swift — 新增/编辑记录表单
+    StatisticsViewController.swift — 统计页（月份选择器+汇总卡片+环形图+分类列表）
 
   Assets.xcassets/               — 图标和颜色资源
   Info.plist                     — 应用配置
@@ -69,8 +78,9 @@ Bookkeeping/
 |------|--------|------|:--------:|
 | 登录 | `LoginViewController` | 用户名密码登录 | 否 |
 | 注册 | `RegisterViewController` | 用户名密码注册 | 否 |
-| 记录列表 | `RecordListViewController` | 汇总卡片 + 记录列表 + CRUD | 是 |
-| 记录表单 | `RecordFormViewController` | 新增/编辑记录 | 是 |
+| 记录列表 | `RecordListViewController` | 筛选栏 + 分页记录列表 + CRUD | 是 |
+| 记录表单 | `RecordFormViewController` | 新增/编辑记录（支持 modal 和 push） | 是 |
+| 统计 | `StatisticsViewController` | 月度汇总卡片 + 分类占比环形图 | 是 |
 
 ### 组件与 API 调用映射
 
@@ -79,10 +89,12 @@ Bookkeeping/
 | `LoginViewController` | `POST /api/auth/login` | 点击登录按钮 |
 | `RegisterViewController` | `POST /api/auth/register` | 点击注册按钮 |
 | `SceneDelegate` | `GET /api/categories` | 应用启动时 |
-| `RecordListViewController` | `GET /api/records` | viewWillAppear / CRUD 后 |
+| `RecordListViewController` | `GET /api/records?page=&pageSize=&...` | viewWillAppear / 筛选变化 / 分页加载 / CRUD 后 |
 | `RecordListViewController` | `DELETE /api/records/:id` | 左滑删除确认 |
 | `RecordFormViewController` | `POST /api/records` | 新增保存 |
 | `RecordFormViewController` | `PUT /api/records/:id` | 编辑保存 |
+| `StatisticsViewController` | `GET /api/statistics/monthly` | 进入页面 / 切换月份 |
+| `StatisticsViewController` | `GET /api/statistics/by-category` | 进入页面 / 切换月份 / 切换收支 tab |
 
 ### 数据流向
 
@@ -103,11 +115,19 @@ Bookkeeping/
 ### 认证流程
 
 1. 启动 → `AuthManager.loadFromKeychain()` 恢复 token
-2. 有 token → 进入记录列表页；无 token → 进入登录页
-3. 登录/注册成功 → `AuthManager.setAuth()` 存 Keychain → 切换到列表页
+2. 有 token → 进入 `MainTabBarController`；无 token → 进入登录页
+3. 登录/注册成功 → `AuthManager.setAuth()` 存 Keychain → 切换到 TabBar
 4. 每次请求 → `APIClient` 自动从 `AuthManager.shared.token` 读取并注入 `Authorization` header
 5. 收到 401 → `APIClient` 调用 `AuthManager.handleUnauthorized()` → 发送通知 →`SceneDelegate` 切到登录页
 6. 手动退出 → `AuthManager.logout()` → 切到登录页
+
+### 导航架构
+
+- `MainTabBarController` 作为认证后的根视图控制器
+- 两个 Tab：明细（RecordListVC）和统计（StatisticsVC），各自嵌套在 `UINavigationController` 中
+- 中央凸起"+"按钮覆盖在 TabBar 上方，点击以 Modal 形式弹出 RecordFormVC（创建模式）
+- 编辑记录仍从列表 push
+- `RecordDidChange` 通知用于 CRUD 后刷新当前活跃页面
 
 ### 网络层设计（APIClient.swift）
 
@@ -131,7 +151,28 @@ Bookkeeping/
 - 后端存分（整数），iOS 展示元（两位小数）
 - `AmountFormatter.centsToYuan(_:)`: `String(format: "%.2f", Double(cents) / 100.0)`
 - `AmountFormatter.yuanToCents(_:)`: `Int(round(value * 100))`
-- 转换仅在两个位置：`RecordFormViewController`（输入→分）和 `RecordCell`/汇总（分→展示）
+- 转换仅在两个位置：`RecordFormViewController`（输入→分）和展示层（分→展示）
+
+### 统计页设计
+
+- **月份选择器**：左右箭头切换月份，不可超过当前月
+- **汇总卡片**：收入(绿)、支出(红)、结余(蓝) 三卡片，数据来自 `GET /api/statistics/monthly`
+- **收支切换**：`UISegmentedControl`，默认支出
+- **环形图**：`DonutChartView` 使用 CoreGraphics (`UIBezierPath`) 自绘，中心显示总金额
+- **分类列表**：色点 + 分类名 + 金额 + 百分比，按金额降序
+- **空状态**：无数据时显示"暂无数据"
+
+### 列表增强设计
+
+- **筛选栏**（tableHeaderView）：
+  - 第一行：类型下拉（UIMenu：全部/收入/支出）+ 分类下拉（UIMenu：全部 + 按类型过滤）
+  - 第二行：开始日期（UIDatePicker compact）+ 结束日期
+  - 切换类型时重置分类为"全部"
+  - 任意筛选变化 → 重置到第 1 页重新加载
+- **无限滚动分页**：
+  - pageSize=20，`willDisplay` 检测距底部 3 行时加载下一页
+  - `UIActivityIndicatorView` 作为 tableFooterView 显示加载中
+  - CRUD 后保持筛选条件从第 1 页重新加载
 
 ### 表单校验规则
 
@@ -170,9 +211,10 @@ Bookkeeping/
 ## 三、新增页面步骤
 
 1. 在 `Controllers/` 新建 `XxxViewController.swift`
-2. 在 Xcode 项目导航器中添加文件引用
+2. 在 Xcode 项目导航器中添加文件引用（更新 project.pbxproj）
 3. 如需新 API，在 `Services/` 添加函数
 4. 如需新模型，在 `Models/` 添加 Codable 结构体
+5. 如需 Tab，在 `MainTabBarController` 中添加
 
 ### 新增 API 调用步骤
 
@@ -185,9 +227,8 @@ Bookkeeping/
 
 ## 四、已知限制
 
-1. 后端 `GET /api/records` 无分页，数据量大时需加分页支持
-2. JWT 无 refresh token，7 天后需重新登录
-3. 无密码找回
-4. 无离线缓存（每次需联网获取数据）
-5. `NSAllowsArbitraryLoads` 仅适用开发环境，生产需配置 HTTPS
-6. 未添加 XCTest 单元测试（建议为 AmountFormatter、DateHelper 添加）
+1. JWT 无 refresh token，7 天后需重新登录
+2. 无密码找回
+3. 无离线缓存（每次需联网获取数据）
+4. `NSAllowsArbitraryLoads` 仅适用开发环境，生产需配置 HTTPS
+5. 未添加 XCTest 单元测试（建议为 AmountFormatter、DateHelper 添加）

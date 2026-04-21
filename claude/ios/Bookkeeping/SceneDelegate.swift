@@ -41,9 +41,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     /// 切换到主页面
     func switchToMain() {
-        let nav = UINavigationController(rootViewController: RecordListViewController())
-        nav.navigationBar.prefersLargeTitles = false
-        window?.rootViewController = nav
+        let tabBar = MainTabBarController()
+        window?.rootViewController = tabBar
     }
 
     /// 切换到登录页
