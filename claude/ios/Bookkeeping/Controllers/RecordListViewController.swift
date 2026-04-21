@@ -60,7 +60,13 @@ class RecordListViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        resetAndFetch()
+        Task {
+            // 确保分类数据已加载，再刷新菜单
+            _ = try? await CategoryService.fetchCategories()
+            updateTypeMenu()
+            updateCategoryMenu()
+            resetAndFetch()
+        }
     }
 
     // MARK: - 导航栏
@@ -188,6 +194,7 @@ class RecordListViewController: UIViewController {
             self?.typeButton.setTitle("全部", for: .normal)
             self?.filters.categoryId = nil
             self?.categoryButton.setTitle("全部", for: .normal)
+            self?.updateTypeMenu()
             self?.updateCategoryMenu()
             self?.resetAndFetch()
         }
@@ -196,6 +203,7 @@ class RecordListViewController: UIViewController {
             self?.typeButton.setTitle("支出", for: .normal)
             self?.filters.categoryId = nil
             self?.categoryButton.setTitle("全部", for: .normal)
+            self?.updateTypeMenu()
             self?.updateCategoryMenu()
             self?.resetAndFetch()
         }
@@ -204,6 +212,7 @@ class RecordListViewController: UIViewController {
             self?.typeButton.setTitle("收入", for: .normal)
             self?.filters.categoryId = nil
             self?.categoryButton.setTitle("全部", for: .normal)
+            self?.updateTypeMenu()
             self?.updateCategoryMenu()
             self?.resetAndFetch()
         }
@@ -225,6 +234,7 @@ class RecordListViewController: UIViewController {
         actions.append(UIAction(title: "全部", state: filters.categoryId == nil ? .on : .off) { [weak self] _ in
             self?.filters.categoryId = nil
             self?.categoryButton.setTitle("全部", for: .normal)
+            self?.updateCategoryMenu()
             self?.resetAndFetch()
         })
 
@@ -233,6 +243,7 @@ class RecordListViewController: UIViewController {
             actions.append(UIAction(title: cat.name, state: state) { [weak self] _ in
                 self?.filters.categoryId = cat.id
                 self?.categoryButton.setTitle(cat.name, for: .normal)
+                self?.updateCategoryMenu()
                 self?.resetAndFetch()
             })
         }
