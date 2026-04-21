@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, gte, lte, count, type SQL } from 'drizzle-orm';
 import { db } from '../db';
-import { records } from '../db/schema';
+import { records, categories } from '../db/schema';
 import { authMiddleware, type AuthRequest } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 
@@ -37,6 +37,13 @@ router.post('/', validate(createRecordSchema), (req, res, next) => {
     const { userId } = (req as AuthRequest).user;
     const { amount, isIncome, categoryId, note, date } = req.body;
 
+    // 校验 categoryId 是否存在
+    const category = db.select().from(categories).where(eq(categories.id, categoryId)).get();
+    if (!category) {
+      res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Category not found' } });
+      return;
+    }
+
     const record = db.insert(records).values({
       userId,
       amount,
@@ -53,16 +60,67 @@ router.post('/', validate(createRecordSchema), (req, res, next) => {
   }
 });
 
-// GET /api/records
+const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+// GET /api/records — 分页 + 筛选
 router.get('/', (req, res, next) => {
   try {
     const { userId } = (req as AuthRequest).user;
-    const result = db.select().from(records)
-      .where(eq(records.userId, userId))
+
+    // 解析分页参数
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string, 10) || 20));
+
+    // 构建筛选条件
+    const conditions: SQL[] = [eq(records.userId, userId)];
+
+    if (req.query.isIncome !== undefined) {
+      const isIncome = parseInt(req.query.isIncome as string, 10);
+      if (isIncome === 0 || isIncome === 1) {
+        conditions.push(eq(records.isIncome, isIncome));
+      }
+    }
+
+    if (req.query.categoryId !== undefined) {
+      const categoryId = parseInt(req.query.categoryId as string, 10);
+      if (!isNaN(categoryId) && categoryId > 0) {
+        conditions.push(eq(records.categoryId, categoryId));
+      }
+    }
+
+    if (req.query.startDate && dateRegex.test(req.query.startDate as string)) {
+      conditions.push(gte(records.date, req.query.startDate as string));
+    }
+
+    if (req.query.endDate && dateRegex.test(req.query.endDate as string)) {
+      conditions.push(lte(records.date, req.query.endDate as string));
+    }
+
+    const where = and(...conditions)!;
+
+    // 查询总数
+    const [{ total }] = db.select({ total: count() }).from(records).where(where).all();
+
+    // 查询分页数据
+    const offset = (page - 1) * pageSize;
+    const items = db.select().from(records)
+      .where(where)
       .orderBy(desc(records.date))
+      .limit(pageSize)
+      .offset(offset)
       .all();
 
-    res.json({ data: result });
+    res.json({
+      data: {
+        items,
+        pagination: {
+          page,
+          pageSize,
+          total,
+          totalPages: Math.ceil(total / pageSize),
+        },
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -112,6 +170,15 @@ router.put('/:id', validate(updateRecordSchema), (req, res, next) => {
     if (existing.userId !== userId) {
       res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
       return;
+    }
+
+    // 若更新 categoryId，校验其是否存在
+    if (req.body.categoryId !== undefined) {
+      const category = db.select().from(categories).where(eq(categories.id, req.body.categoryId)).get();
+      if (!category) {
+        res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Category not found' } });
+        return;
+      }
     }
 
     const updated = db.update(records)

@@ -22,6 +22,7 @@ export function initDatabase() {
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
+      icon TEXT NOT NULL DEFAULT '',
       is_income INTEGER NOT NULL
     );
 
@@ -36,6 +37,12 @@ export function initDatabase() {
       created_at TEXT NOT NULL
     );
   `);
+
+  // 兼容升级：已有数据库添加 icon 列
+  const cols = sqlite.pragma('table_info(categories)') as { name: string }[];
+  if (!cols.some(c => c.name === 'icon')) {
+    sqlite.exec(`ALTER TABLE categories ADD COLUMN icon TEXT NOT NULL DEFAULT ''`);
+  }
 
   seedCategories(db);
 }

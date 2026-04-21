@@ -29,8 +29,9 @@ backend/
 │   │   └── validate.ts       # Zod 校验中间件工厂
 │   ├── routes/
 │   │   ├── auth.ts           # /api/auth — 注册、登录
-│   │   ├── records.ts        # /api/records — 记账 CRUD
-│   │   └── categories.ts     # /api/categories — 分类查询
+│   │   ├── records.ts        # /api/records — 记账 CRUD（支持分页、筛选）
+│   │   ├── categories.ts     # /api/categories — 分类查询
+│   │   └── statistics.ts     # /api/statistics — 月度汇总、分类占比
 │   └── utils/
 │       └── errors.ts         # AppError 类 + 全局错误处理中间件
 ├── package.json
@@ -57,6 +58,7 @@ users 1──N records N──1 categories
 **categories** — 分类表（系统预设，只读）
 - `id` INTEGER PK — 自增主键
 - `name` TEXT UNIQUE — 分类名
+- `icon` TEXT — 分类图标（emoji 字符串）
 - `is_income` INTEGER — 0=支出, 1=收入
 
 **records** — 记账记录表
@@ -149,22 +151,9 @@ npm run dev    # 开发模式（热重载）
 | PORT | 3000 | 服务端口 |
 | JWT_SECRET | default-secret | JWT 签名密钥（生产环境必须更换） |
 
-## 后续迭代方向
+## 分类管理 + 统计 + 分页
 
-### L2：分类管理 + 统计 + 分页
-
-- 扩展 `GET /api/records` 支持分页参数（`page`, `pageSize`）和筛选（`startDate`, `endDate`, `categoryId`）
-- 新增 `GET /api/statistics` 统计接口，支持按月/按分类汇总
-- 考虑在 records 表添加索引：`(user_id, date)`, `(user_id, category_id)`
-
-### L3：多账本 + 分享
-
-- 新增 `ledgers` 表（账本），records 关联 ledger_id
-- 新增 `ledger_members` 表支持邀请码加入
-- 权限模型：owner / member 角色
-
-### L4：iOS 离线同步
-
-- 新增 `sync_log` 表记录变更
-- 新增 `POST /api/sync` 接口处理冲突合并
-- 使用 `updated_at` + 版本号做乐观锁
+- `GET /api/records` 支持分页参数（`page`, `pageSize`）和筛选（`startDate`, `endDate`, `categoryId`, `isIncome`）
+- `GET /api/statistics/monthly` 按月查询收入/支出/结余
+- `GET /api/statistics/by-category` 按分类查询占比
+- 分类表增加 `icon` 字段（emoji 标识）

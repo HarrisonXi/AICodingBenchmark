@@ -158,12 +158,34 @@ curl -X POST http://localhost:3000/api/records \
 
 **GET** `/api/records`
 
-需要鉴权。返回当前用户的所有记录，按日期降序排列。
+需要鉴权。返回当前用户的记录，按日期降序排列，支持分页和筛选。
+
+**Query 参数：**
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| page | number | 1 | 页码，≥1 |
+| pageSize | number | 20 | 每页条数，1-100 |
+| isIncome | 0 \| 1 | — | 按类型筛选：0=支出，1=收入 |
+| categoryId | number | — | 按分类 ID 筛选 |
+| startDate | string | — | 起始日期 YYYY-MM-DD（含） |
+| endDate | string | — | 结束日期 YYYY-MM-DD（含） |
+
+所有筛选条件可组合使用。
 
 **请求示例：**
 
 ```bash
-curl http://localhost:3000/api/records \
+# 基本分页
+curl 'http://localhost:3000/api/records?page=1&pageSize=10' \
+  -H 'Authorization: Bearer <token>'
+
+# 组合筛选：2026年4月的支出记录
+curl 'http://localhost:3000/api/records?isIncome=0&startDate=2026-04-01&endDate=2026-04-30' \
+  -H 'Authorization: Bearer <token>'
+
+# 按分类筛选
+curl 'http://localhost:3000/api/records?categoryId=1&page=1&pageSize=5' \
   -H 'Authorization: Bearer <token>'
 ```
 
@@ -171,28 +193,36 @@ curl http://localhost:3000/api/records \
 
 ```json
 {
-  "data": [
-    {
-      "id": 2,
-      "userId": 1,
-      "categoryId": 9,
-      "isIncome": 1,
-      "amount": 1000000,
-      "note": "4月工资",
-      "date": "2026-04-15",
-      "createdAt": "2026-04-15T10:35:00.000Z"
-    },
-    {
-      "id": 1,
-      "userId": 1,
-      "categoryId": 1,
-      "isIncome": 0,
-      "amount": 2550,
-      "note": "午餐",
-      "date": "2026-04-14",
-      "createdAt": "2026-04-14T10:30:00.000Z"
+  "data": {
+    "items": [
+      {
+        "id": 2,
+        "userId": 1,
+        "categoryId": 9,
+        "isIncome": 1,
+        "amount": 1000000,
+        "note": "4月工资",
+        "date": "2026-04-15",
+        "createdAt": "2026-04-15T10:35:00.000Z"
+      },
+      {
+        "id": 1,
+        "userId": 1,
+        "categoryId": 1,
+        "isIncome": 0,
+        "amount": 2550,
+        "note": "午餐",
+        "date": "2026-04-14",
+        "createdAt": "2026-04-14T10:30:00.000Z"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "pageSize": 20,
+      "total": 2,
+      "totalPages": 1
     }
-  ]
+  }
 }
 ```
 
@@ -310,18 +340,101 @@ curl http://localhost:3000/api/categories
 ```json
 {
   "data": [
-    { "id": 1, "name": "餐饮", "isIncome": 0 },
-    { "id": 2, "name": "交通", "isIncome": 0 },
-    { "id": 3, "name": "购物", "isIncome": 0 },
-    { "id": 4, "name": "娱乐", "isIncome": 0 },
-    { "id": 5, "name": "居住", "isIncome": 0 },
-    { "id": 6, "name": "医疗", "isIncome": 0 },
-    { "id": 7, "name": "教育", "isIncome": 0 },
-    { "id": 8, "name": "其他支出", "isIncome": 0 },
-    { "id": 9, "name": "工资", "isIncome": 1 },
-    { "id": 10, "name": "兼职", "isIncome": 1 },
-    { "id": 11, "name": "理财", "isIncome": 1 },
-    { "id": 12, "name": "其他收入", "isIncome": 1 }
+    { "id": 1, "name": "餐饮", "icon": "🍽️", "isIncome": 0 },
+    { "id": 2, "name": "交通", "icon": "🚗", "isIncome": 0 },
+    { "id": 3, "name": "购物", "icon": "🛒", "isIncome": 0 },
+    { "id": 4, "name": "娱乐", "icon": "🎮", "isIncome": 0 },
+    { "id": 5, "name": "居住", "icon": "🏠", "isIncome": 0 },
+    { "id": 6, "name": "医疗", "icon": "💊", "isIncome": 0 },
+    { "id": 7, "name": "教育", "icon": "📚", "isIncome": 0 },
+    { "id": 8, "name": "其他支出", "icon": "📦", "isIncome": 0 },
+    { "id": 9, "name": "工资", "icon": "💰", "isIncome": 1 },
+    { "id": 10, "name": "兼职", "icon": "🤝", "isIncome": 1 },
+    { "id": 11, "name": "理财", "icon": "📈", "isIncome": 1 },
+    { "id": 12, "name": "其他收入", "icon": "💵", "isIncome": 1 }
   ]
 }
 ```
+
+---
+
+### 9. 月度收支汇总
+
+**GET** `/api/statistics/monthly`
+
+需要鉴权。查询指定月份的收入、支出、结余总额。
+
+**Query 参数：**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| month | string | 是 | YYYY-MM 格式 |
+
+**请求示例：**
+
+```bash
+curl 'http://localhost:3000/api/statistics/monthly?month=2026-04' \
+  -H 'Authorization: Bearer <token>'
+```
+
+**成功响应 (200)：**
+
+```json
+{
+  "data": {
+    "month": "2026-04",
+    "income": 1000000,
+    "expense": 52550,
+    "balance": 947450
+  }
+}
+```
+
+**错误响应：**
+- 400：month 参数缺失或格式错误
+
+---
+
+### 10. 按分类统计占比
+
+**GET** `/api/statistics/by-category`
+
+需要鉴权。查询指定月份各分类的金额和占比。
+
+**Query 参数：**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| month | string | 是 | YYYY-MM 格式 |
+| isIncome | 0 \| 1 | 否 | 默认 0（查支出） |
+
+**请求示例：**
+
+```bash
+curl 'http://localhost:3000/api/statistics/by-category?month=2026-04&isIncome=0' \
+  -H 'Authorization: Bearer <token>'
+```
+
+**成功响应 (200)：**
+
+```json
+{
+  "data": {
+    "month": "2026-04",
+    "isIncome": 0,
+    "total": 52550,
+    "items": [
+      { "categoryId": 1, "categoryName": "餐饮", "icon": "🍽️", "amount": 30000, "percentage": 57.09 },
+      { "categoryId": 2, "categoryName": "交通", "icon": "🚗", "amount": 22550, "percentage": 42.91 }
+    ]
+  }
+}
+```
+
+**字段说明：**
+- `total`：该月该类型（收入/支出）的总金额（分）
+- `percentage`：该分类占总额的百分比，保留两位小数
+- `items`：按金额降序排列
+
+**错误响应：**
+- 400：month 参数缺失或格式错误、isIncome 值无效

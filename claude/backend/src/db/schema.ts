@@ -10,6 +10,7 @@ export const users = sqliteTable('users', {
 export const categories = sqliteTable('categories', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull().unique(),
+  icon: text('icon').notNull().default(''),
   isIncome: integer('is_income').notNull(), // 0=支出, 1=收入
 });
 
