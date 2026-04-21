@@ -40,3 +40,50 @@ export interface ApiErrorBody {
     message: string
   }
 }
+
+// 月度统计
+export interface MonthlyStatistics {
+  month: string
+  income: number
+  expense: number
+  balance: number
+}
+
+// 分类占比明细
+export interface CategoryBreakdownItem {
+  categoryId: number
+  categoryName: string
+  icon: string
+  amount: number
+  percentage: number
+}
+
+// 分类占比响应
+export interface CategoryBreakdown {
+  month: string
+  isIncome: number
+  total: number
+  items: CategoryBreakdownItem[]
+}
+
+// 分页信息
+export interface Pagination {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
+
+// 分页响应
+export interface PaginatedResponse<T> {
+  items: T[]
+  pagination: Pagination
+}
+
+// 记录筛选条件
+export interface RecordFilters {
+  isIncome?: 0 | 1
+  categoryId?: number
+  startDate?: string
+  endDate?: string
+}
