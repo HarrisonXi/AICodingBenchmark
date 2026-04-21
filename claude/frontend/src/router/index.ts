@@ -20,6 +20,11 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/statistics',
+      component: () => import('@/pages/StatisticsPage.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },
