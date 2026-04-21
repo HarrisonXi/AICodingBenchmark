@@ -20,22 +20,31 @@ npm run dev
 |------|----------|------|:----:|
 | `/login` | `LoginPage.vue` | 用户登录 | 否 |
 | `/register` | `RegisterPage.vue` | 用户注册 | 否 |
-| `/` | `HomePage.vue` | 记录列表、汇总、CRUD 操作 | 是 |
+| `/` | `HomePage.vue` | 记录列表（分页+筛选）、编辑/删除 | 是 |
+| `/statistics` | `StatisticsPage.vue` | 月度统计、分类饼图 | 是 |
 
 ### 组件层级
 
 ```
 App.vue
 ├── AppHeader.vue          — 仅登录后显示（标题 + 用户名 + 退出按钮）
+├── BottomNav.vue          — 仅登录后显示（明细 / + 新增 / 统计）
+├── RecordForm.vue         — 全局新增记录表单（由 BottomNav 中心按钮触发）
 └── <router-view>
     ├── LoginPage.vue       — 登录表单 + "去注册"链接
     ├── RegisterPage.vue    — 注册表单 + "去登录"链接
-    └── HomePage.vue        — 核心页面
+    ├── HomePage.vue        — 记录列表页
+    │   ├── RecordFilter.vue    — 筛选栏（类型/分类/日期范围）
+    │   ├── RecordItem.vue × N  — 单条记录
+    │   ├── RecordForm.vue      — 编辑记录表单（局部）
+    │   ├── ConfirmDialog.vue   — 删除确认弹窗
+    │   └── 无限滚动哨兵元素
+    └── StatisticsPage.vue  — 统计页
+        ├── 月份选择器（◀ ▶）
         ├── 汇总卡片（收入/支出/结余）
-        ├── RecordItem.vue × N  — 单条记录（分类、金额、日期、备注、编辑/删除）
-        ├── RecordForm.vue      — 新增/编辑模态表单
-        ├── ConfirmDialog.vue   — 删除确认弹窗
-        └── FAB 新增按钮
+        ├── 收入/支出 Tab 切换
+        ├── Doughnut 环形图（Chart.js）
+        └── 分类明细列表
 ```
 
 ### 组件与 API 调用映射
@@ -45,10 +54,12 @@ App.vue
 | `LoginPage` | `POST /api/auth/login` | 提交登录表单 |
 | `RegisterPage` | `POST /api/auth/register` | 提交注册表单 |
 | `App.vue` | `GET /api/categories` | 应用挂载时 |
-| `HomePage` | `GET /api/records` | 页面挂载 / 增删改后刷新 |
-| `RecordForm` → `HomePage` | `POST /api/records` | 保存新记录 |
+| `App.vue` | `POST /api/records` | BottomNav "+" 按钮创建记录 |
+| `HomePage` | `GET /api/records?page=&pageSize=&...` | 页面挂载 / 筛选变化 / 滚动加载 / 编辑删除后 |
 | `RecordForm` → `HomePage` | `PUT /api/records/:id` | 保存编辑 |
 | `ConfirmDialog` → `HomePage` | `DELETE /api/records/:id` | 确认删除 |
+| `StatisticsPage` | `GET /api/statistics/monthly?month=` | 页面挂载 / 切换月份 |
+| `StatisticsPage` | `GET /api/statistics/by-category?month=&isIncome=` | 页面挂载 / 切换月份 / 切换收入支出 Tab |
 
 ### 数据流向
 
@@ -72,6 +83,7 @@ App.vue
 |------|------|------|
 | 构建 | Vite | Vue 3 标配，HMR 快 |
 | UI | 无外部库 | 仅 3 页面，手写 CSS 更轻（总 CSS < 10KB） |
+| 图表 | chart.js + vue-chartjs | 轻量（~60KB gzip），环形图开箱即用，匹配项目最小依赖原则 |
 | 状态管理 | Pinia | Vue 3 官方方案，轻量 |
 | CSS | Vue scoped styles + CSS 变量 | 零依赖，样式隔离 |
 | HTTP | 原生 fetch 封装 | ~50 行代码，无需 axios |
@@ -97,7 +109,8 @@ src/
 
 - **auth store**：token + 用户信息，持久化到 localStorage
 - **categories store**：分类列表，应用启动时拉取一次，内存缓存
-- **records**：不放 store，仅 HomePage 本地 `ref` 管理（只有一个页面用到）
+- **records**：不放 store，HomePage 本地 `ref` 管理，使用分页 API 按需加载
+- **statistics**：不放 store，StatisticsPage 本地管理（有独立 API）
 
 ### 金额处理
 
@@ -146,7 +159,5 @@ npm run build    # 输出到 dist/
 
 ## 三、已知限制
 
-1. 后端 `GET /api/records` 无分页，返回全部记录。数据量大时需后端加分页支持。
-2. 无 JWT refresh token，7 天后需重新登录。
-3. 无密码找回功能。
-4. 前端过滤/搜索需自行实现（后端无筛选参数）。
+1. 无 JWT refresh token，7 天后需重新登录。
+2. 无密码找回功能。
