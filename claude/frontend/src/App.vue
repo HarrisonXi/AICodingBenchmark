@@ -43,7 +43,9 @@ async function handleCreateSave(payload: CreateRecordPayload) {
 
 <template>
   <AppHeader v-if="auth.isAuthenticated" />
-  <router-view ref="homePageRef" :key="route.path" />
+  <router-view v-slot="{ Component }">
+    <component :is="Component" ref="homePageRef" />
+  </router-view>
   <BottomNav v-if="auth.isAuthenticated" @create-record="openCreateForm" />
 
   <!-- 新增记录表单（全局） -->
